@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Voice-to-Text</title>
+  <style>
+    #response {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Voice-to-Text</h1>
+  <div>
+    <button id="recordButton">Record</button>
+    <button id="stopButton">Stop</button>
+  </div>
+  <div id="response"></div>
+
+  <script>
+    const recordButton = document.getElementById('recordButton');
+    const stopButton = document.getElementById('stopButton');
+    const responseDiv = document.getElementById('response');
+
+    let recorder;
+    let chunks = [];
+
+    recordButton.addEventListener('click', startRecording);
+    stopButton.addEventListener('click', stopRecording);
+
+    function startRecording() {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+          recorder = new MediaRecorder(stream);
+          recorder.addEventListener('dataavailable', function(e) {
+            chunks.push(e.data);
+          });
+          recorder.start();
+          recordButton.disabled = true;
+          stopButton.disabled = false;
+        })
+        .catch(function(err) {
+          console.error('Error:', err);
+        });
+    }
+
+    function stopRecording() {
+      recorder.addEventListener('stop', function() {
+        const blob = new Blob(chunks, { type: 'audio/wav' });
+        chunks = [];
+
+        const formData = new FormData();
+        formData.append('voiceData', blob, 'voice.wav');
+
+        fetch('http://localhost:3000/voice', {
+          method: 'POST',
+          body: formData
+        })
+        .then(function(response) {
+          return response.json();
+        })
+        .then(function(data) {
+          responseDiv.innerHTML = `
+            <p>Generated Audio:</p>
+            <audio controls>
+              <source src="${data.audioUrl}" type="audio/mp3">
+            </audio>
+          `;
+        })
+        .catch(function(err) {
+          console.error('Error:', err);
+        });
+
+        recordButton.disabled = false;
+        stopButton.disabled = true;
+      });
+
+      recorder.stop();
+    }
+  </script>
+</body>
+</html>
